@@ -1,21 +1,14 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=1
-#PBS -l walltime=02:00:00
+#PBS -l nodes=1:ppn=1,vmem=20gb,walltime=02:00:00
+#PBS -N bl.forward
 
-#SBATCH --job-name=bl_mne_forward
 #SBATCH --ntasks-per-node=1
 #SBATCH --mem=20G
 #SBATCH --time=02:00:00
 
-set -x
 set -e
+set -x
 
-mkdir -p out_dir out_figs out_report
-
-if [ -f /usr/bin/singularity ]; then
-    singularity exec --disable-cache --no-mount tmp \
-        docker://aunnikri642/app-freesurfer-mne-source-recon \
-        python3 main.py
-else
-    python3 main.py
-fi
+singularity exec \
+  docker://aunnikri642/app-freesurfer-mne-source-recon \
+  python3 main.py
