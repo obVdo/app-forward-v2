@@ -192,7 +192,7 @@ except Exception as e:
     sys.exit(1)
 
 # == SAVE OUTPUT ==
-fwd_path = os.path.join('out_dir', 'forward-fwd.fif')
+fwd_path = os.path.join('out_dir', 'fwd.fif')
 try:
     mne.write_forward_solution(fwd_path, fwd, overwrite=True)
     add_info_to_product(report_items, f"Saved: {fwd_path}", "info")
