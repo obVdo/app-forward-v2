@@ -161,6 +161,24 @@ if bem_file:
             add_info_to_product(report_items, f"BEM file not found at: {bem_file} (also tried {_alt})", "warning")
             bem_file = None
 
+# == OPTIONAL: FREESURFER DIR (for alignment plot surfaces) ==
+subjects_dir = None
+subject      = None
+fs_path = config.get('freesurfer') or None
+if fs_path and os.path.isdir(fs_path):
+    fs_path = os.path.abspath(fs_path)
+    if os.path.isdir(os.path.join(fs_path, 'mri')):
+        subjects_dir = os.path.dirname(fs_path)
+        subject      = os.path.basename(fs_path)
+    else:
+        _subdirs = sorted([d for d in os.listdir(fs_path)
+                           if os.path.isdir(os.path.join(fs_path, d, 'mri'))])
+        if _subdirs:
+            subjects_dir = fs_path
+            subject      = _subdirs[0]
+if subject:
+    add_info_to_product(report_items, f"FreeSurfer subject: {subject}", "info")
+
 # == COMPUTE FORWARD SOLUTION ==
 trans_obj = None
 bem_sol   = None
@@ -224,12 +242,13 @@ except Exception as e:
 try:
     import pyvista
     mne.viz.set_3d_backend('pyvistaqt')
+    _surfaces = {'outer_skin': 0.4, 'brain': 1.0} if subjects_dir else {}
     fig_align = mne.viz.plot_alignment(
         info, trans=trans_obj,
-        subject=src[0].get('subject_his_id', 'fsaverage'),
-        subjects_dir=None,
+        subject=subject or src[0].get('subject_his_id', 'fsaverage'),
+        subjects_dir=subjects_dir,
         src=src, bem=bem_sol,
-        surfaces={},  # use BEM surfaces from bem_sol; no subjects_dir available
+        surfaces=_surfaces,
         show_axes=True, dig=True, coord_frame='meg' if use_meg else 'head',
     )
     fig_path = os.path.join('out_figs', 'forward_alignment.png')
