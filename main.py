@@ -140,10 +140,26 @@ trans_file = config.get('trans') or None
 bem_file   = config.get('fif') or None
 mindist    = float(config.get('mindist') or 5.0)
 
-if trans_file and not os.path.isfile(trans_file):
-    trans_file = None
-if bem_file and not os.path.isfile(bem_file):
-    bem_file = None
+if trans_file:
+    if os.path.isfile(trans_file):
+        add_info_to_product(report_items, f"Trans file: {trans_file}", "info")
+    else:
+        add_info_to_product(report_items, f"Trans file not found at: {trans_file}", "warning")
+        trans_file = None
+
+if bem_file:
+    if os.path.isfile(bem_file):
+        add_info_to_product(report_items, f"BEM file: {bem_file}", "info")
+    else:
+        # meg/fif datatype names the file meg.fif — try bem-sol.fif in the same directory
+        _bem_dir = os.path.dirname(bem_file)
+        _alt = os.path.join(_bem_dir, 'bem-sol.fif')
+        if os.path.isfile(_alt):
+            bem_file = _alt
+            add_info_to_product(report_items, f"BEM file (resolved): {bem_file}", "info")
+        else:
+            add_info_to_product(report_items, f"BEM file not found at: {bem_file} (also tried {_alt})", "warning")
+            bem_file = None
 
 # == COMPUTE FORWARD SOLUTION ==
 trans_obj = None
