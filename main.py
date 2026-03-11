@@ -38,31 +38,28 @@ report_items = []
 # == LOAD CONFIG ==
 config = load_config()
 
-# == LOAD SENSOR DATA (for channel info) ==
+# == LOAD SENSOR DATA (for channel info only — epochs, raw, or evoked all work) ==
 epochs_file = config.get('epochs') or None
 raw_file    = config.get('raw') or None
+evoked_file = config.get('evoked') or None
 
 info = None
 try:
     if epochs_file and os.path.isfile(epochs_file):
-        epochs = mne.read_epochs(epochs_file, preload=False)
-        info   = epochs.info
-        add_info_to_product(
-            report_items,
-            f"Loaded epochs: {len(epochs)} epochs, {len(epochs.ch_names)} channels",
-            "info"
-        )
+        data = mne.read_epochs(epochs_file, preload=False)
+        info = data.info
+        add_info_to_product(report_items, f"Loaded epochs: {len(data.ch_names)} channels", "info")
     elif raw_file and os.path.isfile(raw_file):
         info = mne.io.read_info(raw_file)
-        add_info_to_product(
-            report_items,
-            f"Loaded raw info: {len(info['ch_names'])} channels",
-            "info"
-        )
+        add_info_to_product(report_items, f"Loaded raw: {len(info['ch_names'])} channels", "info")
+    elif evoked_file and os.path.isfile(evoked_file):
+        evoked = mne.read_evokeds(evoked_file)[0]
+        info   = evoked.info
+        add_info_to_product(report_items, f"Loaded evoked: {len(info['ch_names'])} channels", "info")
     else:
         add_info_to_product(
             report_items,
-            "FATAL: No sensor data found. Set 'epochs' or 'raw' in config.json.",
+            "FATAL: No sensor data found. Set 'epochs', 'raw', or 'evoked' in config.json.",
             "error"
         )
         create_product_json(report_items)
