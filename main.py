@@ -40,9 +40,9 @@ config = load_config()
 
 # == LOAD SENSOR DATA (for channel info only — any data type works) ==
 # Priority: evoked > epochs > raw (most to least downstream/processed).
-# If multiple inputs are provided, the most downstream one is used.
-epochs_file = config.get('epochs') or None
-raw_file    = config.get('raw') or None
+# Brainlife config keys: evoked='evoked', epochs='epo', raw='mne'
+epochs_file = config.get('epo') or None
+raw_file    = config.get('mne') or None
 evoked_file = config.get('evoked') or None
 
 info = None
@@ -102,9 +102,20 @@ add_info_to_product(
 )
 
 # == LOAD SOURCE SPACE ==
-src_file = config.get('src') or config.get('source_space') or None
-if src_file and not os.path.isfile(src_file):
-    src_file = None
+# Brainlife maps raw source_space datatype to config key 'output' (a directory).
+# Find the src.fif file inside that directory.
+_src_dir  = config.get('output') or None
+src_file  = None
+if _src_dir and os.path.isdir(_src_dir):
+    for _f in os.listdir(_src_dir):
+        if _f.endswith('.fif') and 'src' in _f:
+            src_file = os.path.join(_src_dir, _f)
+            break
+    if not src_file:
+        # fallback: any .fif in the directory
+        _fifs = [f for f in os.listdir(_src_dir) if f.endswith('.fif')]
+        if _fifs:
+            src_file = os.path.join(_src_dir, _fifs[0])
 
 try:
     if src_file:
@@ -124,8 +135,9 @@ except Exception as e:
     sys.exit(1)
 
 # == LOAD TRANS AND BEM ==
+# Brainlife config keys: trans='trans', bem='fif' (meg/fif datatype)
 trans_file = config.get('trans') or None
-bem_file   = config.get('bem') or None
+bem_file   = config.get('fif') or None
 mindist    = float(config.get('mindist') or 5.0)
 
 if trans_file and not os.path.isfile(trans_file):
