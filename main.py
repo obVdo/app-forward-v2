@@ -201,15 +201,24 @@ except Exception as e:
     create_product_json(report_items)
     sys.exit(1)
 
-# == QC FIGURE — sensor topomap ==
+# == QC FIGURE — alignment (sensors + source space + head) ==
 try:
-    fig_sensors = mne.viz.plot_sensors(info, show_names=False, show=False)
-    fig_path = os.path.join('out_figs', 'forward_sensors.png')
-    fig_sensors.savefig(fig_path, dpi=150, bbox_inches='tight')
-    plt.close(fig_sensors)
-    add_image_to_product(report_items, 'Sensor Layout', filepath=fig_path)
+    import pyvista
+    mne.viz.set_3d_backend('pyvistaqt')
+    fig_align = mne.viz.plot_alignment(
+        info, trans=trans_obj if trans_file else 'fsaverage',
+        subject=src[0].get('subject_his_id', 'fsaverage'),
+        subjects_dir=None,
+        src=src, bem=bem_sol if bem_file else None,
+        surfaces={'outer_skin': 0.4, 'brain': 1.0},
+        show_axes=True, dig=True, coord_frame='meg' if use_meg else 'head',
+    )
+    fig_path = os.path.join('out_figs', 'forward_alignment.png')
+    fig_align.plotter.screenshot(fig_path)
+    fig_align.plotter.close()
+    add_image_to_product(report_items, 'Sensor-Source Alignment', filepath=fig_path)
 except Exception as e:
-    add_info_to_product(report_items, f"Could not plot sensors: {e}", "warning")
+    add_info_to_product(report_items, f"Could not plot alignment: {e}", "warning")
 
 # == SAVE REPORT ==
 report = mne.Report(title='Forward Solution Report')

@@ -11,4 +11,4 @@ set -x
 
 singularity exec \
   docker://aunnikri642/app-freesurfer-mne-source-recon \
-  python3 main.py
+  xvfb-run -a python3 main.py
