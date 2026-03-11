@@ -229,7 +229,7 @@ try:
         subject=src[0].get('subject_his_id', 'fsaverage'),
         subjects_dir=None,
         src=src, bem=bem_sol,
-        surfaces={'outer_skin': 0.4, 'brain': 1.0},
+        surfaces={},  # use BEM surfaces from bem_sol; no subjects_dir available
         show_axes=True, dig=True, coord_frame='meg' if use_meg else 'head',
     )
     fig_path = os.path.join('out_figs', 'forward_alignment.png')
