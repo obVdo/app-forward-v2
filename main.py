@@ -182,10 +182,11 @@ try:
         create_product_json(report_items)
         sys.exit(1)
 
+    _method = "native BEM + trans" if (trans_file and bem_file) else "fsaverage sphere model (no trans/BEM)"
     add_info_to_product(
         report_items,
         f"Forward solution: {fwd['nsource']} sources, "
-        f"{'fixed' if fwd['surf_ori'] else 'free'} orientation",
+        f"{'fixed' if fwd['surf_ori'] else 'free'} orientation, {modality.upper()}, {_method}",
         "info"
     )
 except Exception as e:
