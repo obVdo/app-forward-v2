@@ -146,6 +146,8 @@ if bem_file and not os.path.isfile(bem_file):
     bem_file = None
 
 # == COMPUTE FORWARD SOLUTION ==
+trans_obj = None
+bem_sol   = None
 try:
     if trans_file and bem_file:
         add_info_to_product(report_items, "Computing forward solution (trans + BEM)...", "info")
@@ -206,10 +208,10 @@ try:
     import pyvista
     mne.viz.set_3d_backend('pyvistaqt')
     fig_align = mne.viz.plot_alignment(
-        info, trans=trans_obj if trans_file else 'fsaverage',
+        info, trans=trans_obj,
         subject=src[0].get('subject_his_id', 'fsaverage'),
         subjects_dir=None,
-        src=src, bem=bem_sol if bem_file else None,
+        src=src, bem=bem_sol,
         surfaces={'outer_skin': 0.4, 'brain': 1.0},
         show_axes=True, dig=True, coord_frame='meg' if use_meg else 'head',
     )
