@@ -1,6 +1,10 @@
 """
 app-forward-v2: Compute forward solution for MEG/EEG source reconstruction.
 
+Authors : Guiomar Niso (guiomar.niso@gmail.com)
+          Antonio Caulín (antoniocaulinatienzar@gmail.com) https://github.com/AntonioCauAt
+Based on: https://github.com/guiomar/app-fw-solution
+
 Inputs : sensor data (epochs or raw FIF), source space (src.fif from app-source-space-v2),
          trans.fif (from app-coreg-v2), bem-sol.fif (from app-bem-v2).
 Outputs: forward-fwd.fif
