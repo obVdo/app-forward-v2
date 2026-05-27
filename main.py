@@ -323,7 +323,7 @@ if _using_fsaverage_src:
             coord_frame='mri',
             verbose=False,
         )
-        align_img = fig_align.screenshot()
+        align_img = fig_align.plotter.screenshot()
         try:
             fig_align.plotter.close()
         except Exception:
