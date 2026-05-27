@@ -14,6 +14,7 @@ Outputs: forward-fwd.fif
 
 import os
 import sys
+import glob
 
 # Resolve brainlife_utils — try local copy first, then parent monorepo
 app_dir = os.path.dirname(os.path.abspath(__file__))
@@ -47,21 +48,35 @@ config = load_config()
 # == LOAD SENSOR DATA (for channel info only — any data type works) ==
 # Priority: evoked > epochs > raw (most to least downstream/processed).
 # Brainlife config keys: evoked='evoked', epochs='epo', raw='mne'
-epochs_file = config.get('epo') or None
-raw_file    = config.get('mne') or None
-evoked_file = config.get('evoked') or None
+# Brainlife may send a directory path — resolve to the actual FIF file.
+def _resolve_fif(path, patterns):
+    """Return file path: direct file, or first glob match inside a directory."""
+    if not path:
+        return None
+    if os.path.isfile(path):
+        return path
+    if os.path.isdir(path):
+        for pat in patterns:
+            hits = sorted(glob.glob(os.path.join(path, pat)))
+            if hits:
+                return hits[0]
+    return None
+
+epochs_file = _resolve_fif(config.get('epo'),    ['*epo*.fif', '*epoch*.fif', '*.fif'])
+raw_file    = _resolve_fif(config.get('mne'),    ['*raw*.fif', '*.fif'])
+evoked_file = _resolve_fif(config.get('evoked'), ['*ave*.fif', '*evoked*.fif', '*.fif'])
 
 info = None
 try:
-    if evoked_file and os.path.isfile(evoked_file):
+    if evoked_file:
         evoked = mne.read_evokeds(evoked_file)[0]
         info   = evoked.info
         add_info_to_product(report_items, f"Loaded evoked: {len(info['ch_names'])} channels", "info")
-    elif epochs_file and os.path.isfile(epochs_file):
+    elif epochs_file:
         data = mne.read_epochs(epochs_file, preload=False)
         info = data.info
         add_info_to_product(report_items, f"Loaded epochs: {len(data.ch_names)} channels", "info")
-    elif raw_file and os.path.isfile(raw_file):
+    elif raw_file:
         info = mne.io.read_info(raw_file)
         add_info_to_product(report_items, f"Loaded raw: {len(info['ch_names'])} channels", "info")
     else:
@@ -112,6 +127,7 @@ add_info_to_product(
 # Find the src.fif file inside that directory.
 _src_dir  = config.get('output') or None
 src_file  = None
+_using_fsaverage_src = False
 if _src_dir and os.path.isdir(_src_dir):
     for _f in os.listdir(_src_dir):
         if _f.endswith('.fif') and 'src' in _f:
@@ -132,11 +148,22 @@ try:
             "info"
         )
     else:
-        add_info_to_product(report_items, "FATAL: No source space file found. Set 'src' in config.json.", "error")
-        create_product_json(report_items)
-        sys.exit(1)
+        # No source space provided — fall back to fsaverage oct6
+        add_info_to_product(report_items, "No source space provided — using fsaverage oct6 template.", "warning")
+        subjects_dir = mne.datasets.fetch_fsaverage(verbose=False)
+        subjects_dir = os.path.dirname(subjects_dir)  # strip /fsaverage suffix
+        src = mne.setup_source_space(
+            'fsaverage', spacing='oct6',
+            subjects_dir=subjects_dir, add_dist=False, verbose=False
+        )
+        _using_fsaverage_src = True
+        add_info_to_product(
+            report_items,
+            f"fsaverage source space: {sum(s['nuse'] for s in src)} sources",
+            "info"
+        )
 except Exception as e:
-    add_info_to_product(report_items, f"FATAL: Could not load source space: {e}", "error")
+    add_info_to_product(report_items, f"FATAL: Could not load/create source space: {e}", "error")
     create_product_json(report_items)
     sys.exit(1)
 
@@ -182,15 +209,16 @@ try:
         )
 
     elif modality == 'eeg':
-        # EEG fallback: sphere model
+        # EEG fallback: sphere model + fsaverage trans when using fsaverage source space
         add_info_to_product(
             report_items,
             "No trans/BEM — using sphere model for EEG (fallback, less accurate).",
             "warning"
         )
         sphere = mne.make_sphere_model(r0=(0., 0., 0.), head_radius=0.095)
+        _trans = 'fsaverage' if _using_fsaverage_src else None
         fwd = mne.make_forward_solution(
-            info, trans=None, src=src, bem=sphere,
+            info, trans=_trans, src=src, bem=sphere,
             meg=False, eeg=True,
             mindist=mindist, n_jobs=1, verbose=True
         )
