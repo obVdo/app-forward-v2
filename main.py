@@ -217,16 +217,23 @@ try:
         )
 
     elif modality == 'eeg':
-        # EEG fallback: sphere model + fsaverage trans when using fsaverage source space
+        # EEG template fallback: use fsaverage 3-layer BEM (ships with MNE).
+        # A sphere model must NOT be used here — radial dipoles produce zero
+        # potential on a perfect sphere (Helmholtz), giving zero leadfield columns
+        # → depth weighting: 1/0 = inf → NaN in make_inverse_operator.
+        if not _using_fsaverage_src:
+            # Need subjects_dir for the BEM path — fetch fsaverage if not already done
+            _fsa = mne.datasets.fetch_fsaverage(verbose=False)
+            subjects_dir = os.path.dirname(str(_fsa))
+        _bem_path = os.path.join(subjects_dir, 'fsaverage', 'bem',
+                                 'fsaverage-5120-5120-5120-bem-sol.fif')
         add_info_to_product(
             report_items,
-            "No trans/BEM — using sphere model for EEG (fallback, less accurate).",
-            "warning"
+            f"No trans/BEM provided — using fsaverage 3-layer BEM: {_bem_path}",
+            "info"
         )
-        sphere = mne.make_sphere_model(r0=(0., 0., 0.), head_radius=0.095)
-        _trans = 'fsaverage' if _using_fsaverage_src else None
         fwd = mne.make_forward_solution(
-            info, trans=_trans, src=src, bem=sphere,
+            info, trans='fsaverage', src=src, bem=_bem_path,
             meg=False, eeg=True,
             mindist=mindist, n_jobs=1, verbose=True
         )
@@ -240,7 +247,7 @@ try:
         create_product_json(report_items)
         sys.exit(1)
 
-    _method = "native BEM + trans" if (trans_file and bem_file) else "fsaverage sphere model (no trans/BEM)"
+    _method = "native BEM + trans" if (trans_file and bem_file) else "fsaverage 3-layer BEM (template)"
     add_info_to_product(
         report_items,
         f"Forward solution: {fwd['nsource']} sources, "
