@@ -16,6 +16,11 @@ import os
 import sys
 import glob
 
+# Headless 3D rendering — must be set BEFORE vtk/pyvista/mne.viz is imported.
+os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+os.environ.setdefault('VTK_DEFAULT_RENDER_WINDOW_OFFSCREEN', '1')
+os.environ.setdefault('MPLBACKEND', 'Agg')
+
 # Resolve brainlife_utils — try local copy first, then parent monorepo
 app_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(app_dir)
@@ -255,8 +260,80 @@ except Exception as e:
     sys.exit(1)
 
 
-# == SAVE REPORT ==
+# == ALIGNMENT PLOT (fsaverage template only) ==
 report = mne.Report(title='Forward Solution Report')
+
+if _using_fsaverage_src:
+    try:
+        from qtpy.QtWidgets import QApplication
+        _qapp = QApplication.instance() or QApplication(sys.argv)
+
+        import pyvista as pv
+        pv.OFF_SCREEN = True
+        mne.viz.set_3d_backend('pyvistaqt')
+
+        from mne.viz.backends._pyvista import (
+            PyVistaFigure, Plotter as PVPlotter, _PyVistaRenderer, _ALL_PLOTTERS,
+        )
+        import mne.viz.backends.renderer as renderer_mod
+
+        def _patched_build(self):
+            if self._plotter is None:
+                store_filtered = {k: v for k, v in self.store.items()
+                                  if k in ('window_size', 'shape', 'border', 'multi_samples')}
+                plotter = PVPlotter(off_screen=True, **store_filtered)
+                plotter.background_color = self.background_color
+                self._plotter = plotter
+                try:
+                    _ALL_PLOTTERS[plotter._id_name] = plotter
+                except AttributeError:
+                    pass
+            if self.plotter.iren is not None:
+                self.plotter.iren.initialize()
+                def safe_update(stime=1, force_redraw=True):
+                    self.plotter.render()
+                self.plotter.update = safe_update
+            return self.plotter
+
+        PyVistaFigure._build = _patched_build
+
+        class _OffscreenRenderer(_PyVistaRenderer):
+            _kind = 'pyvistaqt'
+            def show(self):
+                self.figure.plotter.show(auto_close=False)
+            def __getattr__(self, name):
+                if name.startswith(('_window_', '_dock_', '_enable_', '_disable_')):
+                    return lambda *a, **kw: None
+                raise AttributeError(name)
+
+        renderer_mod.backend._Renderer = _OffscreenRenderer
+
+        fig_align = mne.viz.plot_alignment(
+            info,
+            trans='fsaverage',
+            subject='fsaverage',
+            subjects_dir=subjects_dir,
+            surfaces='head',
+            src=src,
+            eeg=['original', 'projected'] if use_eeg else [],
+            meg=['helmet', 'sensors'] if use_meg else [],
+            coord_frame='mri',
+            verbose=False,
+        )
+        align_img = fig_align.screenshot()
+        try:
+            fig_align.plotter.close()
+        except Exception:
+            pass
+        align_path = os.path.join('out_figs', 'alignment.png')
+        plt.imsave(align_path, align_img)
+        add_image_to_product(report_items, 'Sensor–head alignment (fsaverage)', filepath=align_path)
+        report.add_image(align_path, title='Sensor–head alignment (fsaverage template)')
+
+    except Exception as e:
+        add_info_to_product(report_items, f"Could not render alignment plot: {e}", "warning")
+
+# == SAVE REPORT ==
 report.save(os.path.join('out_report', 'report.html'), overwrite=True)
 
 add_info_to_product(report_items, "Forward solution computed successfully.", "success")
