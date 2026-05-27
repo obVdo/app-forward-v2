@@ -55,14 +55,23 @@ config = load_config()
 # Brainlife config keys: evoked='evoked', epochs='epo', raw='mne'
 # Brainlife may send a directory path — resolve to the actual FIF file.
 def _resolve_fif(path, patterns):
-    """Return file path: direct file, or first glob match inside a directory."""
+    """Return file path: direct file, glob inside directory, or glob parent dir."""
     if not path:
         return None
     if os.path.isfile(path):
         return path
+    # path is a directory — glob inside it
     if os.path.isdir(path):
         for pat in patterns:
             hits = sorted(glob.glob(os.path.join(path, pat)))
+            if hits:
+                return hits[0]
+    # exact file missing (e.g. Brainlife sends ave.fif but app saved condition-ave.fif)
+    # glob the parent directory as fallback
+    _dir = os.path.dirname(path)
+    if _dir and os.path.isdir(_dir):
+        for pat in patterns:
+            hits = sorted(glob.glob(os.path.join(_dir, pat)))
             if hits:
                 return hits[0]
     return None
