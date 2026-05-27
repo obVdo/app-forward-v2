@@ -323,13 +323,13 @@ if _using_fsaverage_src:
             coord_frame='mri',
             verbose=False,
         )
-        align_img = fig_align.plotter.screenshot()
+        align_path = os.path.join('out_figs', 'alignment.png')
+        fig_align.plotter.show(auto_close=False)
+        fig_align.plotter.screenshot(align_path)
         try:
             fig_align.plotter.close()
         except Exception:
             pass
-        align_path = os.path.join('out_figs', 'alignment.png')
-        plt.imsave(align_path, align_img)
         add_image_to_product(report_items, 'Sensor–head alignment (fsaverage)', filepath=align_path)
         report.add_image(align_path, title='Sensor–head alignment (fsaverage template)')
 
